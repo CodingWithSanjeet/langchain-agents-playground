@@ -1,0 +1,42 @@
+# Environment variables & secrets (CRITICAL)
+.env
+.env.*
+!.env.example
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# macOS / OS files
+.DS_Store
+Thumbs.db
+
+# Python-generated files & bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+devel/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE & Editor configs
+.idea/
+.vscode/
