@@ -1,6 +1,6 @@
 # 🦜🔗 LangChain v1.x & Agentic AI Master Study Notes
 
-A comprehensive, beginner-friendly master reference guide covering **LangChain 1.x**, multi-provider LLM integrations (OpenAI, Google Gemini, Groq), custom tool definitions, and state-graph AI agents built on **LangGraph**.
+A comprehensive, beginner-friendly master reference guide covering **LangChain 1.x**, multi-provider LLM integrations (OpenAI, Google Gemini, Groq), custom tool definitions, state-graph AI agents built on **LangGraph**, real-time **streaming**, and parallel **batch processing**.
 
 ---
 
@@ -16,7 +16,11 @@ A comprehensive, beginner-friendly master reference guide covering **LangChain 1
   - [Provider Integration Matrix](#provider-integration-matrix)
   - [Provider Code Implementations](#provider-code-implementations)
   - [Understanding `AIMessage` & Token Usage](#understanding-aimessage--token-usage)
-- [4. Revision Cheatsheet & Best Practices](#4-revision-cheatsheet--best-practices)
+- [4. Module 3: Real-Time Streaming & Parallel Batch Processing](#4-module-3-real-time-streaming--parallel-batch-processing)
+  - [Real-Time Token Streaming (`model.stream`)](#real-time-token-streaming-modelstream)
+  - [Parallel Batch Processing (`model.batch`)](#parallel-batch-processing-modelbatch)
+  - [Concurrency Control (`max_concurrency`)](#concurrency-control-max_concurrency)
+- [5. Revision Cheatsheet & Best Practices](#5-revision-cheatsheet--best-practices)
 
 ---
 
@@ -229,12 +233,71 @@ AIMessage(
 
 ---
 
-## 4. Revision Cheatsheet & Best Practices
+## 4. Module 3: Real-Time Streaming & Parallel Batch Processing
 
-| Topic | Best Practice / Rule |
-| :--- | :--- |
-| **API Keys** | Never hardcode keys in `.py` or `.ipynb` files. Always use `dotenv` and ignore `.env` in `.gitignore`. |
-| **Tool Descriptions** | Write explicit, detailed docstrings for tools—the LLM reads docstrings to choose tools. |
-| **Agent State** | Pass messages as lists: `{"messages": [{"role": "user", "content": "..."}]}` or `{"messages": "query"}`. |
-| **Extracting Output** | Use `response["messages"][-1].content` for agents, and `response.content` for direct model calls. |
-| **Model Swapping** | Prefer `init_chat_model()` in production code to change model providers without refactoring code. |
+### Real-Time Token Streaming (`model.stream`)
+
+Instead of waiting for the full response to generate, `.stream()` yields output chunks progressively as they arrive from the LLM provider.
+
+```python
+# Real-time streaming iterator
+for chunk in model.stream("Write a short story about space."):
+    print(chunk.text, end="", flush=True)
+```
+
+#### Key Benefits of Streaming:
+- **Reduced Perceived Latency**: Users see immediate output within milliseconds instead of waiting 5–10 seconds.
+- **ChatGPT-like Effect**: Perfect for user-facing chat UIs and terminal CLIs.
+
+---
+
+### Parallel Batch Processing (`model.batch`)
+
+When you need to process multiple independent prompts, calling `.batch()` executes requests **in parallel** under the hood.
+
+```python
+prompts = [
+    "Why do parrots have colorful feathers?",
+    "How do airplanes fly?",
+    "What is quantum computing?"
+]
+
+# Execute all prompts in parallel
+responses = model.batch(prompts)
+
+for response in responses:
+    print(response.content)
+```
+
+#### Comparison: `.invoke()` vs `.batch()`
+- **Sequential `.invoke()`**: Total time = $T_1 + T_2 + T_3 + \dots + T_n$
+- **Parallel `.batch()`**: Total time $\approx \max(T_1, T_2, \dots, T_n)$
+
+---
+
+### Concurrency Control (`max_concurrency`)
+
+To prevent exceeding LLM API rate limits (e.g. HTTP 429 Too Many Requests errors), configure maximum simultaneous parallel calls:
+
+```python
+responses = model.batch(
+    prompts,
+    config={
+        "max_concurrency": 5  # Limit to 5 parallel workers
+    }
+)
+```
+
+---
+
+## 5. Revision Cheatsheet & Best Practices
+
+| Operation | Method / Best Practice | Description |
+| :--- | :--- | :--- |
+| **API Keys** | `dotenv.load_dotenv()` | Keep keys in `.env` and add `.env` to `.gitignore`. |
+| **Single Invocation** | `model.invoke(prompt)` | Returns full response as `AIMessage`. |
+| **Real-time Output** | `model.stream(prompt)` | Returns iterator of `AIMessageChunk` objects for live rendering. |
+| **Parallel Tasks** | `model.batch([p1, p2, p3])` | Executes multiple independent prompts concurrently. |
+| **Rate Limit Guard** | `config={"max_concurrency": N}` | Limits parallel API calls during `.batch()` execution. |
+| **Agent Execution** | `agent.invoke({"messages": [...]})` | Executes state-graph tool-calling loop via LangGraph. |
+| **Extracting Output** | `response["messages"][-1].content` | Gets final text response from an Agent run trajectory. |
